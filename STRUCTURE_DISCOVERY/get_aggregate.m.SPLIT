@@ -1,0 +1,104 @@
+function [model_struc] = get_aggregate(input_dir, filelist, ext, minSize)
+
+
+addpath('STRUCTURE_DISCOVERY');
+addpath('STRUCTURE_DISCOVERY/VariablePrecisionIntegers/VariablePrecisionIntegers');
+addpath('gaimc/');
+
+inpfile = fopen(filelist);
+fnames = textscan(inpfile,'%s');
+ntimesteps = numel(fnames{1});
+
+aggregate_graph = [];
+
+for i = 1:ntimesteps
+	input_file = [input_dir,fnames{1}{i}];
+	temp = load(input_file);
+ 	if(size(temp,2) < 3)
+ 	       temp(:,3) = 1;
+ 	end
+	aggregate_graph = [aggregate_graph; temp];
+end	
+orig = spconvert(aggregate_graph);
+if(size(orig,1) ~= size(orig,2))
+	orig(max(size(orig)),max(size(orig))) = 0;
+end
+
+n = max(size(orig));
+
+comm = (orig > 1);
+comm(n,n) = 0;
+size(comm)
+comm_sym = comm + comm';
+comm_sym = comm_sym~=0;
+comm_sym_nodiag = comm_sym - diag(diag(comm_sym));
+
+anom = (orig == 1);
+anom(n,n) = 0;
+anom_sym = anom + anom';
+anom_sym = anom_sym~=0;
+anom_sym_nodiag = anom_sym - diag(diag(anom_sym));
+	
+global model;
+model = struct('code', {}, 'edges', {}, 'nodes1', {}, 'nodes2', {}, 'benefit', {}, 'benefit_notEnc', {});
+global model_idx;
+model_idx = 0;
+model_comm_struc = SlashBurnEncode( comm_sym_nodiag, 2, '.', false, false, minSize, 'aggregate_comm');
+
+global model;
+model = struct('code', {}, 'edges', {}, 'nodes1', {}, 'nodes2', {}, 'benefit', {}, 'benefit_notEnc', {});
+global model_idx;
+model_idx = 0;
+model_anom_struc = SlashBurnEncode( anom_sym_nodiag, 2, '.', false, false, minSize, 'aggregate_anom');
+
+for i = 1:ntimesteps
+	global model;
+	model = struct('code', {}, 'edges', {}, 'nodes1', {}, 'nodes2', {}, 'benefit', {}, 'benefit_notEnc', {});
+	global model_idx;
+	model_idx = 0;
+        input_file = [input_dir,fnames{1}{i}];
+	[~, fname, ~] = fileparts(input_file)
+	out_fid = fopen(strcat(fname,'_ALL.model'),'w');
+        temp = load(input_file);
+        if(size(temp,2) < 3)
+               temp(:,3) = 1;
+        end
+	
+	tslice = spconvert(temp);
+	tslice(n,n) = 0;
+	tslice_sym = tslice + tslice';
+	tslice_sym = tslice_sym~=0;
+	tslice_sym_nodiag = tslice_sym - diag(diag(tslice_sym));
+
+	for p = 1:numel(model_comm_struc)
+		relv_nodes = sort(union(model_comm_struc(p).nodes1, model_comm_struc(p).nodes2));
+		prev_model_idx = model_idx;
+		tslice_sub = tslice_sym_nodiag(relv_nodes, relv_nodes);
+		if(nnz(tslice_sub) >= minSize)
+			[idx,exf] = EncodeSubgraph(tslice_sym_nodiag(relv_nodes, relv_nodes), [1:numel(relv_nodes)], relv_nodes, n, out_fid, false, minSize);
+		end
+	%	if(model_idx == prev_model_idx)
+	%		disp('something went wrong')
+	%		disp(['modelidx= ',num2str(model_idx)])
+	%		disp(['minidx= ',num2str(idx)])
+	%		disp(exf)
+	%		return
+		%end
+		%disp(['minidx= ',num2str(idx)])
+		%disp(exf)
+	end
+	
+	for p = 1:numel(model_anom_struc)
+		relv_nodes = sort(union(model_anom_struc(p).nodes1, model_anom_struc(p).nodes2));
+		prev_model_idx = model_idx;
+		tslice_sub = tslice_sym_nodiag(relv_nodes, relv_nodes);
+		if(nnz(tslice_sub) >= minSize)
+			[idx,exf] = EncodeSubgraph(tslice_sym_nodiag(relv_nodes, relv_nodes), [1:numel(relv_nodes)], relv_nodes, n, out_fid, false, minSize);
+		end
+	end
+	
+	fclose(out_fid);
+end
+
+end	
+

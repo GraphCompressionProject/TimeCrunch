@@ -1,0 +1,22 @@
+Code for 
+   TimeCrunch: Interpretable Dynamic Graph Summarization
+   Neil Shah, Danai Koutra, Tianmin Zou, Brian Gallagher and Christos Faloutsos
+
+Contact:
+   Neil, neilshah@cs.cmu.edu
+
+
+To run:
+   
+   Change lines 1 and 2 of struc_extractor.m -- 'input_dir' should point to the original data directory, 'ext' refers to the extension of the graph files.  These should be in the format 'srcnode dstnode\n' with nodes numbered from 1.
+
+   Change line 4 of run_structureDiscovery.m to point to the data path in which you would like the static, per-graph summaries to be output.
+
+   Run struc_extractor.m -- this will produce static summaries for each of the input graphs.
+
+   Copy the contents of stitching/ to the directory with the static summaries, and change the appropriate parameters in lines 1-4 to point to graph and model filelists (pathnames should be absolute in these -- one path per line, in an ordered fashion), and set the desired number of temporal structures and similarity parameters, if needed.
+
+   Run stitch.m to produce the temporal summary.
+
+   Use the scripts MDL/tscore.py, MDL/tgreedy.py to score and select the relevant models.  These are to be used as follows: 'python MDL/tscore.py graph_flist.txt timecrunch.tmodel' or 'python MDL/tgreedy.py graph_flist.txt timecrunch.tmodel'.
+
